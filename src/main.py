@@ -108,11 +108,11 @@ def get_transactions_per_hour_and_alert():
     #alerts
     alerts = []
     
-    if z_score_failed > monitoring_rules.z_score_positive_threshold:
+    if z_score_failed > monitoring_rules.z_score_threshold_failed:
         alerts.append(f"ALERT! Failed transactions per hour are above normal - The z-score is {z_score_failed}")
-    if z_score_denied > monitoring_rules.z_score_positive_threshold:
+    if z_score_denied > monitoring_rules.z_score_threshold_denied:
         alerts.append(f"ALERT! Denied transactions per hour are above normal - The z-score is {z_score_denied}")
-    if z_score_reversed > monitoring_rules.z_score_positive_threshold:
+    if z_score_reversed > monitoring_rules.z_score_threshold_reversed:
         alerts.append(f"ALERT! Reversed transactions per hour are above normal - The z-score is {z_score_reversed}")
 
     #The alert will only be triggered if at least one of the z-scores is higher than 3
