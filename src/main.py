@@ -130,53 +130,5 @@ def get_transactions_per_hour_and_alert():
 
 
 
-#This endpoint would be requested every full hour (e.g. 10:00:00 and not 10:20:00)
-@app.route("/monitoring/approved-transactions", methods=["GET"])
-def get_approved_transactions_per_hour_and_alert():
-    connection = connect(**config)
-    cursor = connection.cursor()
-
-    cursor.execute("""
-        SELECT DATE_FORMAT(time, '%Y-%m-%d %H:00:00') as time, SUM(count)
-        FROM transactions
-        WHERE status = "approved" AND time >= DATE_SUB(DATE_SUB(NOW(), INTERVAL 3 HOUR), INTERVAL 1 HOUR)
-        GROUP BY DATE_FORMAT(time, '%Y-%m-%d %H:00:00');
-    """)
-    approved_transactions_hour = cursor.fetchall()
-    
-    response = {
-        "time": approved_transactions_hour[0][0],
-        "count": int(approved_transactions_hour[0][1])
-    }
-
-    date_hour = datetime.strptime(response["time"], "%Y-%m-%d %H:%M:%S")
-    hour = date_hour.hour
-
-    # Loading the data
-    data = pd.read_csv('files/approved_transactions_hour.csv')
-
-    data['time'] = data['time'].astype(int)
-    data = data.set_index('time')
-
-    rolling_avg = data['count'].rolling(window=3, min_periods=1).mean().shift(-1)
-    rolling_sd = data['count'].rolling(window=3, min_periods=1).std().shift(-1)
-
-    avg_count = rolling_avg.loc[hour]
-    sd_count = rolling_sd.loc[hour]
-    
-    z_score = monitoring_rules.z_score_hour_approved(response['count'], avg_count, sd_count)
-    
-    if z_score < monitoring_rules.z_score_negative_threshold:
-        send_alert(app, {"alerts": [f"""ALERT! The number of approved transactions was below the expected
-            for the past hour ({response['time']})! The expected count should have been around 
-            {round(avg_count, 2)} +- {round(sd_count, 2)} but the observed count was {response['count']}.
-            The z-score was at {z_score}."""]})
-
-    return jsonify(
-        message = "Number of approved transactions in the last hour",
-        data = response
-    )
-
-
 if __name__ == "__main__":
     app.run()
