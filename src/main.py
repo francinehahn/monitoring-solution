@@ -6,7 +6,9 @@ from mysql.connector import connect
 from utils.send_alert import send_alert
 
 import pandas as pd
-from sklearn.linear_model import LinearRegression
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeRegressor
 
 from dotenv import load_dotenv, find_dotenv
 import os
@@ -108,11 +110,11 @@ def get_transactions_per_hour_and_alert():
     #alerts
     alerts = []
     
-    if z_score_failed > monitoring_rules.z_score_positive_threshold:
+    if z_score_failed > monitoring_rules.z_score_threshold_failed:
         alerts.append(f"ALERT! Failed transactions per hour are above normal - The z-score is {z_score_failed}")
-    if z_score_denied > monitoring_rules.z_score_positive_threshold:
+    if z_score_denied > monitoring_rules.z_score_threshold_denied:
         alerts.append(f"ALERT! Denied transactions per hour are above normal - The z-score is {z_score_denied}")
-    if z_score_reversed > monitoring_rules.z_score_positive_threshold:
+    if z_score_reversed > monitoring_rules.z_score_threshold_reversed:
         alerts.append(f"ALERT! Reversed transactions per hour are above normal - The z-score is {z_score_reversed}")
 
     #The alert will only be triggered if at least one of the z-scores is higher than 3
@@ -130,53 +132,65 @@ def get_transactions_per_hour_and_alert():
 
 
 
-#This endpoint would be requested every full hour (e.g. 10:00:00 and not 10:20:00)
-@app.route("/monitoring/approved-transactions", methods=["GET"])
-def get_approved_transactions_per_hour_and_alert():
-    connection = connect(**config)
-    cursor = connection.cursor()
+def decision_tree (time):
+    data = pd.read_csv('files/transactions_hour.csv')
 
-    cursor.execute("""
-        SELECT DATE_FORMAT(time, '%Y-%m-%d %H:00:00') as time, SUM(count)
-        FROM transactions
-        WHERE status = "approved" AND time >= DATE_SUB(DATE_SUB(NOW(), INTERVAL 3 HOUR), INTERVAL 1 HOUR)
-        GROUP BY DATE_FORMAT(time, '%Y-%m-%d %H:00:00');
-    """)
-    approved_transactions_hour = cursor.fetchall()
+    # Separar as variáveis independentes (horário)
+    X = data['time'].values.reshape(-1, 1)
+
+    # Separar as variáveis dependentes
+    y_denied = data['denied'].values
+    y_reversed = data['reversed'].values
+    y_failed = data['failed'].values
+
+    # Dividir os dados em conjuntos de treinamento e teste
+    X_train, X_test, y_denied_train, y_denied_test, y_reversed_train, y_reversed_test, y_failed_train, y_failed_test = train_test_split(X, y_denied, y_reversed, y_failed, test_size=0.2, random_state=42)
+
+    # Criar e treinar o modelo de árvore de decisão para denied com restrições para evitar overfitting
+    model_denied = DecisionTreeRegressor(max_depth=5, min_samples_split=5, min_samples_leaf=2)
+    model_denied.fit(X_train, y_denied_train)
+
+    # Criar e treinar o modelo de árvore de decisão para reversed com restrições para evitar overfitting
+    model_reversed = DecisionTreeRegressor(max_depth=5, min_samples_split=5, min_samples_leaf=2)
+    model_reversed.fit(X_train, y_reversed_train)
+
+    # Criar e treinar o modelo de árvore de decisão para failed com restrições para evitar overfitting
+    model_failed = DecisionTreeRegressor(max_depth=5, min_samples_split=5, min_samples_leaf=2)
+    model_failed.fit(X_train, y_failed_train)
+
+    # Fazer previsões para denied
+    previsao_denied = model_denied.predict([[time]])
+
+    # Fazer previsões para reversed
+    previsao_reversed = model_reversed.predict([[time]])
+
+    # Fazer previsões para failed
+    previsao_failed = model_failed.predict([[time]])
+
+    # Fazer previsões para denied usando os dados de teste
+    previsoes_denied = model_denied.predict(X_test)
+
+    # Fazer previsões para reversed usando os dados de teste
+    previsoes_reversed = model_reversed.predict(X_test)
+
+    # Fazer previsões para failed usando os dados de teste
+    previsoes_failed = model_failed.predict(X_test)
+
+    print(f"Previsão para denied: {previsao_denied}")
+    print(f"Previsão para reversed: {previsao_reversed}")
+    print(f"Previsão para failed: {previsao_failed}")
+
+    # Comparar as previsões com os valores reais
+    for i in range(len(previsoes_denied)):
+        print(f"Horário: {X_test[i]}, Valor real (denied): {y_denied_test[i]}, Previsão (denied): {previsoes_denied[i]}")
+        print(f"Horário: {X_test[i]}, Valor real (reversed): {y_reversed_test[i]}, Previsão (reversed): {previsoes_reversed[i]}")
+        print(f"Horário: {X_test[i]}, Valor real (failed): {y_failed_test[i]}, Previsão (failed): {previsoes_failed[i]}")
     
-    response = {
-        "time": approved_transactions_hour[0][0],
-        "count": int(approved_transactions_hour[0][1])
-    }
+    #Estipular qual seria a margem para gerar alertas
 
-    date_hour = datetime.strptime(response["time"], "%Y-%m-%d %H:%M:%S")
-    hour = date_hour.hour
 
-    # Loading the data
-    data = pd.read_csv('files/approved_transactions_hour.csv')
 
-    data['time'] = data['time'].astype(int)
-    data = data.set_index('time')
-
-    rolling_avg = data['count'].rolling(window=3, min_periods=1).mean().shift(-1)
-    rolling_sd = data['count'].rolling(window=3, min_periods=1).std().shift(-1)
-
-    avg_count = rolling_avg.loc[hour]
-    sd_count = rolling_sd.loc[hour]
-    
-    z_score = monitoring_rules.z_score_hour_approved(response['count'], avg_count, sd_count)
-    
-    if z_score < monitoring_rules.z_score_negative_threshold:
-        send_alert(app, {"alerts": [f"""ALERT! The number of approved transactions was below the expected
-            for the past hour ({response['time']})! The expected count should have been around 
-            {round(avg_count, 2)} +- {round(sd_count, 2)} but the observed count was {response['count']}.
-            The z-score was at {z_score}."""]})
-
-    return jsonify(
-        message = "Number of approved transactions in the last hour",
-        data = response
-    )
-
+decision_tree(8)
 
 if __name__ == "__main__":
     app.run()
