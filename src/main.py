@@ -6,7 +6,9 @@ from mysql.connector import connect
 from utils.send_alert import send_alert
 
 import pandas as pd
-from sklearn.linear_model import LinearRegression
+import numpy as np
+from sklearn.model_selection import train_test_split
+from sklearn.tree import DecisionTreeRegressor
 
 from dotenv import load_dotenv, find_dotenv
 import os
@@ -129,6 +131,66 @@ def get_transactions_per_hour_and_alert():
     )
 
 
+
+def decision_tree (time):
+    data = pd.read_csv('files/transactions_hour.csv')
+
+    # Separar as variáveis independentes (horário)
+    X = data['time'].values.reshape(-1, 1)
+
+    # Separar as variáveis dependentes
+    y_denied = data['denied'].values
+    y_reversed = data['reversed'].values
+    y_failed = data['failed'].values
+
+    # Dividir os dados em conjuntos de treinamento e teste
+    X_train, X_test, y_denied_train, y_denied_test, y_reversed_train, y_reversed_test, y_failed_train, y_failed_test = train_test_split(X, y_denied, y_reversed, y_failed, test_size=0.2, random_state=42)
+
+    # Criar e treinar o modelo de árvore de decisão para denied com restrições para evitar overfitting
+    model_denied = DecisionTreeRegressor(max_depth=5, min_samples_split=5, min_samples_leaf=2)
+    model_denied.fit(X_train, y_denied_train)
+
+    # Criar e treinar o modelo de árvore de decisão para reversed com restrições para evitar overfitting
+    model_reversed = DecisionTreeRegressor(max_depth=5, min_samples_split=5, min_samples_leaf=2)
+    model_reversed.fit(X_train, y_reversed_train)
+
+    # Criar e treinar o modelo de árvore de decisão para failed com restrições para evitar overfitting
+    model_failed = DecisionTreeRegressor(max_depth=5, min_samples_split=5, min_samples_leaf=2)
+    model_failed.fit(X_train, y_failed_train)
+
+    # Fazer previsões para denied
+    previsao_denied = model_denied.predict([[time]])
+
+    # Fazer previsões para reversed
+    previsao_reversed = model_reversed.predict([[time]])
+
+    # Fazer previsões para failed
+    previsao_failed = model_failed.predict([[time]])
+
+    # Fazer previsões para denied usando os dados de teste
+    previsoes_denied = model_denied.predict(X_test)
+
+    # Fazer previsões para reversed usando os dados de teste
+    previsoes_reversed = model_reversed.predict(X_test)
+
+    # Fazer previsões para failed usando os dados de teste
+    previsoes_failed = model_failed.predict(X_test)
+
+    print(f"Previsão para denied: {previsao_denied}")
+    print(f"Previsão para reversed: {previsao_reversed}")
+    print(f"Previsão para failed: {previsao_failed}")
+
+    # Comparar as previsões com os valores reais
+    for i in range(len(previsoes_denied)):
+        print(f"Horário: {X_test[i]}, Valor real (denied): {y_denied_test[i]}, Previsão (denied): {previsoes_denied[i]}")
+        print(f"Horário: {X_test[i]}, Valor real (reversed): {y_reversed_test[i]}, Previsão (reversed): {previsoes_reversed[i]}")
+        print(f"Horário: {X_test[i]}, Valor real (failed): {y_failed_test[i]}, Previsão (failed): {previsoes_failed[i]}")
+    
+    #Estipular qual seria a margem para gerar alertas
+
+
+
+decision_tree(8)
 
 if __name__ == "__main__":
     app.run()
