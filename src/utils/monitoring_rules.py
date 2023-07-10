@@ -9,7 +9,7 @@ sd_rate_hour_failed = 0.0002
 
 z_score_threshold_denied = 2
 z_score_threshold_reversed = 2
-z_score_threshold_failed = 2
+z_score_threshold_failed = 1.5
 
 def z_score_hour_denied (num):
     return (num - avg_rate_hour_denied) / sd_rate_hour_denied
