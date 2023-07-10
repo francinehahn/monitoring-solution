@@ -14,7 +14,10 @@ def insert_transactions_per_minute():
     cursor = connection.cursor()
     body = request.json
 
-    try:        
+    try:
+        if len(body) == 0:
+            raise Exception("You must inform at least one status count in the body of the request.")
+        
         #I am pretending to have received data from a minute before
         now = datetime.now()
         now = now.replace(second=0)
