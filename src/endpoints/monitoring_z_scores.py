@@ -3,7 +3,7 @@ from flask import jsonify, Blueprint
 from connection_db.connection_db import config
 from mysql.connector import connect
 
-import utils.monitoring_rules as monitoring_rules
+from utils import monitoring_rules
 from utils.send_alert import send_alert
 
 #This endpoint would be requested every full hour (e.g. 10:00:00 and not 10:20:00)

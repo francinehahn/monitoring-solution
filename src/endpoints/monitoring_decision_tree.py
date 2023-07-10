@@ -3,7 +3,7 @@ from flask import jsonify, Blueprint
 from connection_db.connection_db import config
 from mysql.connector import connect
 
-import utils.monitoring_rules as monitoring_rules
+from utils import monitoring_rules
 from utils.send_alert import send_alert
 
 from datetime import datetime
@@ -19,7 +19,7 @@ from sklearn.tree import DecisionTreeRegressor
 bp = Blueprint('monitoring_decision_tree', __name__)
 
 @bp.route("/monitoring/decision-tree", methods=["GET"])
-def decision_tree():
+def monitoring_decision_tree():
     connection = connect(**config)
     cursor = connection.cursor()
 
