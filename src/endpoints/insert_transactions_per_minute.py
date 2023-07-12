@@ -10,11 +10,11 @@ bp = Blueprint('insert_transactions_per_minute', __name__)
 
 @bp.route("/monitoring", methods=["POST"])
 def insert_transactions_per_minute():
-    connection = connect(**config)
-    cursor = connection.cursor()
-    body = request.json
-
     try:
+        connection = connect(**config)
+        cursor = connection.cursor()
+        body = request.json
+
         if len(body) == 0:
             raise Exception("You must inform at least one status count in the body of the request.")
         
