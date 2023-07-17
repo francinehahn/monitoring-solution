@@ -1,10 +1,10 @@
+import os
+from dotenv import load_dotenv, find_dotenv
 from flask import Flask
+from endpoints.monitoring_decision_tree import bp as bp_decision_tree
 from endpoints.insert_transactions_per_minute import bp as bp_insert_transactions
 from endpoints.monitoring_z_scores import bp as bp_z_scores
-from endpoints.monitoring_decision_tree import bp as bp_decision_tree
 
-from dotenv import load_dotenv, find_dotenv
-import os
 
 load_dotenv(find_dotenv())
 

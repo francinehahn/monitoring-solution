@@ -1,23 +1,22 @@
+from datetime import datetime, timedelta
 from flask import jsonify, Blueprint
-
-from connection_db.connection_db import config
-from mysql.connector import connect
-
-from utils import monitoring_rules
-from utils.send_alert import send_alert
-
-from datetime import datetime
 
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.tree import DecisionTreeRegressor
 
+from mysql.connector import connect
+from connection_db.connection_db import config
 
-#This endpoint would be requested every full hour (e.g. 10:00:00 and not 10:20:00)
-#SECOND SOLUTION - I AM USING A DECISION TREE TO DETERMINE ANOMALIES
+from utils import monitoring_rules
+from utils.send_alert import send_alert
 
 bp = Blueprint('monitoring_decision_tree', __name__)
 
+"""
+This endpoint would be requested every full hour (e.g. 10:00:00 and not 10:20:00)
+SECOND SOLUTION - I AM USING A DECISION TREE TO DETERMINE ANOMALIES
+"""
 @bp.route("/monitoring/decision-tree", methods=["GET"])
 def monitoring_decision_tree():
     try:
@@ -25,7 +24,8 @@ def monitoring_decision_tree():
         cursor = connection.cursor()
 
         now = datetime.now()
-        time = now.strftime("%H")
+        previous_hour = now - timedelta(hours=1)
+        time = previous_hour.strftime("%H")
 
         cursor.execute("""SELECT status,
             ROUND(SUM(count) / (SELECT SUM(count) FROM transactions WHERE time >= DATE_SUB(DATE_SUB(NOW(), INTERVAL 3 HOUR), INTERVAL 1 HOUR)), 3) 
