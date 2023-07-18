@@ -4,6 +4,8 @@ from flask import jsonify, Blueprint
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from sklearn.tree import DecisionTreeRegressor
+from sklearn.metrics import mean_squared_error
+import math
 
 from mysql.connector import connect
 from connection_db.connection_db import config
@@ -51,18 +53,18 @@ def monitoring_decision_tree():
         y_reversed = data['reversed'].values
         y_failed = data['failed'].values
 
-        X_train, X_test, y_denied_train, y_denied_test, y_reversed_train, y_reversed_test, y_failed_train, y_failed_test = train_test_split(X, y_denied, y_reversed, y_failed, test_size=0.2, random_state=42)
+        X_train, X_test, y_denied_train, y_denied_test, y_reversed_train, y_reversed_test, y_failed_train, y_failed_test = train_test_split(X, y_denied, y_reversed, y_failed, test_size=0.35, random_state=42)
 
         # Decision tree model: denied transactions
-        model_denied = DecisionTreeRegressor(max_depth=5, min_samples_split=5, min_samples_leaf=2)
+        model_denied = DecisionTreeRegressor(max_depth=4, min_samples_split=2, min_samples_leaf=3)
         model_denied.fit(X_train, y_denied_train)
 
         # Decision tree model: reversed transactions
-        model_reversed = DecisionTreeRegressor(max_depth=5, min_samples_split=5, min_samples_leaf=2)
+        model_reversed = DecisionTreeRegressor(max_depth=4, min_samples_split=2, min_samples_leaf=3)
         model_reversed.fit(X_train, y_reversed_train)
 
         # Decision tree model: failed transactions
-        model_failed = DecisionTreeRegressor(max_depth=5, min_samples_split=5, min_samples_leaf=2)
+        model_failed = DecisionTreeRegressor(max_depth=3, min_samples_split=2, min_samples_leaf=3)
         model_failed.fit(X_train, y_failed_train)
 
         # Tests
@@ -70,20 +72,17 @@ def monitoring_decision_tree():
         test_predict_reversed = model_reversed.predict(X_test)
         test_predict_failed = model_failed.predict(X_test)
 
-        # Comparing the predictions with the real values
-        for i in range(len(test_predict_denied)):
-            print(f"Horário: {X_test[i]}, Valor real (denied): {y_denied_test[i]}, Previsão (denied): {test_predict_denied[i]}")
-            print(f"Horário: {X_test[i]}, Valor real (reversed): {y_reversed_test[i]}, Previsão (reversed): {test_predict_reversed[i]}")
-            print(f"Horário: {X_test[i]}, Valor real (failed): {y_failed_test[i]}, Previsão (failed): {test_predict_failed[i]}")
-            
-            if y_denied_test[i] - test_predict_denied[i] > monitoring_rules.decision_tree_threshold_denied * test_predict_denied[i]:
-                print(f"ALERT! Denied rates are above normal - Expected rate: {test_predict_denied[i]}, Observed rate: {y_denied_test[i]}!")
-            if y_reversed_test[i] - test_predict_reversed[i] > monitoring_rules.decision_tree_threshold_reversed * test_predict_reversed[i]:
-                print(f"ALERT! Reversed rates are above normal - Expected rate: {test_predict_reversed[i]}, Observed rate: {y_reversed_test[i]}")
-            if y_failed_test[i] - test_predict_failed[i] > monitoring_rules.decision_tree_threshold_failed * test_predict_failed[i]:
-                print(f"ALERT! Failed rates are above normal - Expected rate: {test_predict_failed[i]}, Observed rate: {y_failed_test[i]}")
+        # Root Mean Squared Error (RMSE)
+        mean_squared_error_denied = mean_squared_error(y_denied_test, test_predict_denied)
+        print("RMSE denied transactions: ", math.sqrt(mean_squared_error_denied))
 
-        # Predictions for the time this endpoint is requested
+        mean_squared_error_reversed = mean_squared_error(y_reversed_test, test_predict_reversed)
+        print("RMSE reversed transactions: ", math.sqrt(mean_squared_error_reversed))
+
+        mean_squared_error_failed = mean_squared_error(y_failed_test, test_predict_failed)
+        print("RMSE failed transactions: ", math.sqrt(mean_squared_error_failed))
+
+        # Predictions for the previous hour when this endpoint is requested
         predict_denied = model_denied.predict([[time]])
         predict_reversed = model_reversed.predict([[time]])
         predict_failed = model_failed.predict([[time]])
