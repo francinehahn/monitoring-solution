@@ -1,4 +1,4 @@
-<h1 align="center">Monitoring Analyst Test - CloudWalk</h1>
+<h1 align="center">Monitoring Solution</h1>
 
 ## ℹ️About the project
 In this project, I proposed 2 different approaches to monitor an application.
